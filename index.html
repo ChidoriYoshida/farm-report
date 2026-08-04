@@ -191,6 +191,7 @@ let draftText = "";
 let expandedComments = {};
 let decideFormOpen = {};
 let expandedHistory = {};
+let editingPost = {};
 let saving = false;
 
 async function loadAll(){
@@ -357,7 +358,43 @@ function renderPost(p){
     <span class="meta">${p.author}・${fmtTime(p.ts)}</span>
   </div>`);
   card.appendChild(head);
-  card.appendChild(el(`<div class="post-text ${p.isNone?'none-text':''}">${escapeHtml(p.text)}</div>`));
+
+  const canEdit = !p.decided && myName && p.author === myName;
+
+  if(editingPost[p.id]){
+    const editWrap = el(`<div style="margin:6px 0 10px;"></div>`);
+    const editTa = el(`<textarea>${escapeHtml(p.text)}</textarea>`);
+    editWrap.appendChild(editTa);
+    const editRow = el(`<div class="inline-row" style="margin-top:4px;"></div>`);
+    const saveBtn = el(`<button>保存</button>`);
+    const cancelBtn = el(`<button>やめる</button>`);
+    saveBtn.onclick = async ()=>{
+      if(!editTa.value.trim()) return;
+      p.text = editTa.value.trim();
+      editingPost[p.id] = false;
+      await savePosts(); render();
+    };
+    cancelBtn.onclick = ()=>{ editingPost[p.id] = false; render(); };
+    editRow.appendChild(saveBtn); editRow.appendChild(cancelBtn);
+    editWrap.appendChild(editRow);
+    card.appendChild(editWrap);
+  } else {
+    card.appendChild(el(`<div class="post-text ${p.isNone?'none-text':''}">${escapeHtml(p.text)}</div>`));
+  }
+
+  if(canEdit && !editingPost[p.id]){
+    const editRow2 = el(`<div style="display:flex; gap:10px; margin:-4px 0 8px;"></div>`);
+    const editLink = el(`<button class="toggle-decide" style="padding:0;">編集</button>`);
+    const delLink = el(`<button class="toggle-decide" style="padding:0; color:var(--warn-ink);">削除</button>`);
+    editLink.onclick = ()=>{ editingPost[p.id] = true; render(); };
+    delLink.onclick = async ()=>{
+      if(!confirm('この投稿を削除します。よろしいですか？')) return;
+      posts = posts.filter(x=>x.id!==p.id);
+      await savePosts(); render();
+    };
+    editRow2.appendChild(editLink); editRow2.appendChild(delLink);
+    card.appendChild(editRow2);
+  }
 
   // reactions
   const rrow = el(`<div class="reactrow"></div>`);
@@ -375,8 +412,19 @@ function renderPost(p){
   // comments
   if(p.comments.length>0){
     const cwrap = el(`<div class="comments"></div>`);
-    p.comments.forEach(c=>{
-      cwrap.appendChild(el(`<div class="comment"><b>${escapeHtml(c.author)}：</b>${escapeHtml(c.text)}</div>`));
+    p.comments.forEach((c,ci)=>{
+      const crow2 = el(`<div class="comment" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;"></div>`);
+      crow2.appendChild(el(`<span><b>${escapeHtml(c.author)}：</b>${escapeHtml(c.text)}</span>`));
+      if(myName && c.author === myName){
+        const delC = el(`<button style="border:none; background:none; color:var(--ink-faint); font-size:12px; cursor:pointer; flex:0 0 auto;">削除</button>`);
+        delC.onclick = async ()=>{
+          if(!confirm('このコメントを削除します。よろしいですか？')) return;
+          p.comments.splice(ci,1);
+          await savePosts(); render();
+        };
+        crow2.appendChild(delC);
+      }
+      cwrap.appendChild(crow2);
     });
     card.appendChild(cwrap);
   }
