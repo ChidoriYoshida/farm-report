@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>ひこちゃん牧場 現場ノート</title>
+<style>
+  :root{
+    --bg:#F7F5EE;
+    --paper:#FFFFFF;
+    --line:#E3E0D2;
+    --ink:#2C2B25;
+    --ink-soft:#6E6C5E;
+    --ink-faint:#A6A392;
+    --accent:#3E6650;
+    --accent-bg:#E4ECE4;
+    --accent-ink:#28402F;
+    --warn:#A8511F;
+    --warn-bg:#F3E6DA;
+    --warn-ink:#7A3B14;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    line-height:1.6;
+    padding-bottom:60px;
+  }
+  header{
+    padding:18px 16px 12px;
+    border-bottom:1px solid var(--line);
+    background:var(--paper);
+    position:sticky; top:0; z-index:20;
+  }
+  header .row{display:flex; justify-content:space-between; align-items:center;}
+  header h1{font-size:17px; font-weight:700; margin:0; letter-spacing:.02em;}
+  header .sub{font-size:11px; color:var(--ink-faint); margin-top:2px;}
+  .me{
+    font-size:12px; color:var(--accent-ink); background:var(--accent-bg);
+    padding:5px 10px; border-radius:20px; border:none; font-weight:600;
+  }
+  nav.tabs{
+    display:flex; gap:0; margin-top:14px; border-bottom:1px solid var(--line);
+  }
+  nav.tabs button{
+    flex:1; background:none; border:none; padding:10px 4px; font-size:14px;
+    color:var(--ink-faint); font-weight:600; border-bottom:2px solid transparent;
+    cursor:pointer;
+  }
+  nav.tabs button.active{color:var(--accent-ink); border-bottom:2px solid var(--accent);}
+
+  main{max-width:640px; margin:0 auto; padding:14px 12px 40px;}
+
+  .chips{display:flex; gap:6px; overflow-x:auto; padding:12px 2px 4px; -webkit-overflow-scrolling:touch;}
+  .chip{
+    flex:0 0 auto; font-size:12.5px; padding:6px 12px; border-radius:20px;
+    border:1px solid var(--line); background:var(--paper); color:var(--ink-soft);
+    cursor:pointer; white-space:nowrap;
+  }
+  .chip.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+
+  .search{
+    width:100%; padding:9px 12px; border:1px solid var(--line); border-radius:8px;
+    font-size:13.5px; background:var(--paper); margin:6px 0 4px; color:var(--ink);
+  }
+
+  .composer{
+    background:var(--paper); border:1px solid var(--line); border-radius:14px;
+    padding:14px; margin:14px 0 18px;
+  }
+  .composer .prompt{font-size:13px; color:var(--ink-soft); margin-bottom:10px;}
+  .quickrow{display:flex; gap:8px; margin-bottom:10px;}
+  .qbtn{
+    flex:1; padding:10px 6px; border-radius:10px; border:1px solid var(--line);
+    background:var(--bg); font-size:13px; font-weight:600; color:var(--ink-soft);
+    cursor:pointer; text-align:center;
+  }
+  .qbtn.selected{background:var(--accent-bg); border-color:var(--accent); color:var(--accent-ink);}
+  .tmplrow{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;}
+  .tmpl{
+    font-size:12px; padding:5px 10px; border-radius:20px; border:1px solid var(--line);
+    background:var(--bg); color:var(--ink-soft); cursor:pointer;
+  }
+  textarea{
+    width:100%; min-height:64px; padding:10px; border:1px solid var(--line);
+    border-radius:10px; font-size:14.5px; resize:vertical; font-family:inherit;
+    color:var(--ink); background:var(--bg);
+  }
+  .composer-foot{display:flex; justify-content:space-between; align-items:center; margin-top:10px;}
+  .deptlabel{font-size:12px; color:var(--ink-faint);}
+  button.primary{
+    background:var(--accent); color:#fff; border:none; padding:9px 20px;
+    border-radius:9px; font-size:14px; font-weight:700; cursor:pointer;
+  }
+  button.primary:disabled{background:var(--ink-faint); cursor:default;}
+
+  .post{
+    background:var(--paper); border:1px solid var(--line); border-radius:14px;
+    padding:14px 16px; margin-bottom:12px;
+  }
+  .post-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+  .badge{font-size:11px; padding:3px 9px; border-radius:20px; background:var(--accent-bg); color:var(--accent-ink); font-weight:700;}
+  .meta{font-size:11px; color:var(--ink-faint);}
+  .post-text{font-size:14.5px; margin:6px 0 10px; white-space:pre-wrap;}
+  .none-text{color:var(--ink-faint); font-style:italic;}
+
+  .comments{border-top:1px solid var(--line); padding-top:8px; margin-top:4px;}
+  .comment{font-size:13px; margin-bottom:4px;}
+  .comment b{color:var(--accent-ink);}
+  .inline-row{display:flex; gap:6px; margin-top:8px;}
+  .inline-row input{
+    flex:1; padding:7px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px;
+    background:var(--bg); color:var(--ink);
+  }
+  .inline-row button{
+    padding:0 12px; border-radius:8px; border:1px solid var(--line); background:var(--bg);
+    color:var(--ink-soft); font-size:13px; cursor:pointer;
+  }
+  .reactrow{display:flex; align-items:center; gap:8px; margin-top:6px;}
+  .react{
+    font-size:12px; padding:4px 10px; border-radius:20px; border:1px solid var(--line);
+    background:var(--bg); color:var(--ink-soft); cursor:pointer;
+  }
+  .react.on{background:var(--accent-bg); border-color:var(--accent); color:var(--accent-ink); font-weight:700;}
+
+  .decision-box{background:var(--warn-bg); border-radius:10px; padding:10px 12px; margin-top:8px;}
+  .decision-box .lbl{font-size:11px; color:var(--warn-ink); font-weight:700; margin-bottom:2px;}
+  .decision-box .txt{font-size:13.5px; color:var(--ink);}
+  .decision-box .result{margin-top:6px; padding-top:6px; border-top:1px solid #E7D2BE; font-size:13px; color:var(--ink-soft);}
+
+  .decide-form{margin-top:8px; padding-top:8px; border-top:1px dashed var(--line);}
+  .decide-form label{font-size:11.5px; color:var(--ink-soft); display:block; margin-bottom:4px;}
+  .decide-form input, .decide-form textarea{
+    width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px;
+    font-size:13px; margin-bottom:6px; background:var(--bg); color:var(--ink); font-family:inherit;
+  }
+  .toggle-decide{font-size:12.5px; color:var(--accent-ink); background:none; border:none; cursor:pointer; padding:4px 0; font-weight:600;}
+  label.check{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-soft); margin-bottom:6px;}
+
+  .policy-theme{
+    background:var(--paper); border:1px solid var(--line); border-radius:14px;
+    padding:14px 16px; margin-bottom:12px;
+  }
+  .policy-theme h3{font-size:14.5px; margin:0 0 6px; color:var(--accent-ink);}
+  .policy-current{font-size:14px; margin-bottom:6px;}
+  .policy-history{margin-top:8px; border-top:1px solid var(--line); padding-top:8px;}
+  .policy-history .item{font-size:12.5px; color:var(--ink-soft); margin-bottom:6px;}
+  .policy-history .item .d{color:var(--ink-faint); font-size:11px;}
+  .toggle-hist{font-size:12px; color:var(--ink-faint); background:none; border:none; cursor:pointer; padding:2px 0;}
+
+  .empty{text-align:center; color:var(--ink-faint); font-size:13px; padding:40px 10px;}
+  .loading{text-align:center; color:var(--ink-faint); font-size:13px; padding:40px 10px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <div>
+      <h1>ひこちゃん牧場 現場ノート</h1>
+      <div class="sub">気づき・話し合い・方針の記録</div>
+    </div>
+    <button class="me" id="meBtn">名前を設定</button>
+  </div>
+  <nav class="tabs">
+    <button data-tab="timeline" class="active">タイムライン</button>
+    <button data-tab="policy">方針集</button>
+  </nav>
+</header>
+<main id="app">
+  <div class="loading">読み込み中…</div>
+</main>
+
+<script>
+// ▼▼▼ ここにデプロイ後のApps Script Web AppのURLを貼り付けてください ▼▼▼
+const API_URL = https://script.google.com/macros/s/AKfycby8ZLWe91hhOTIvq8nrfgWbnsM_nRuehSAKInQeJvdob-gh90vJYCNJ-w_BYAyLDJ54IA/exec;
+// ▲▲▲ ここまで ▲▲▲
+
+const DEPTS = ["母豚（交配）","分娩","子豚","第2農場肥育","第3農場肥育","古井農場 堆肥","古井第3農場 堆肥"];
+const TEMPLATES = ["疾病","設備","飼料・添加剤","その他"];
+
+let posts = [];
+let myName = "";
+let activeTab = "timeline";
+let activeDept = "全体";
+let searchText = "";
+let draftDept = DEPTS[0];
+let draftQuick = null; // 'yes' | 'no' | null
+let draftText = "";
+let expandedComments = {};
+let decideFormOpen = {};
+let expandedHistory = {};
+let saving = false;
+
+async function loadAll(){
+  try{
+    const res = await fetch(API_URL);
+    posts = await res.json();
+  }catch(e){ console.error('読み込みエラー', e); posts = []; }
+  myName = localStorage.getItem('farm-note-my-name') || "";
+  render();
+}
+
+async function savePosts(){
+  saving = true;
+  try{
+    await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // CORSのプリフライトを避けるためtext/plainで送る
+      body: JSON.stringify(posts)
+    });
+  }catch(e){ console.error('保存エラー', e); alert('保存に失敗しました。通信環境をご確認ください。'); }
+  saving = false;
+}
+
+async function ensureName(){
+  if(myName) return myName;
+  const n = prompt("お名前を入力してください（投稿に表示されます）");
+  if(n && n.trim()){
+    myName = n.trim();
+    localStorage.setItem('farm-note-my-name', myName);
+  }
+  return myName;
+}
+
+function fmtTime(ts){
+  const d = new Date(ts);
+  return (d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,'0')+":"+String(d.getMinutes()).padStart(2,'0');
+}
+
+function el(html){
+  const t = document.createElement('template');
+  t.innerHTML = html.trim();
+  return t.content.firstChild;
+}
+
+function render(){
+  const app = document.getElementById('app');
+  document.getElementById('meBtn').textContent = myName ? myName : "名前を設定";
+  app.innerHTML = "";
+
+  if(activeTab === 'timeline'){
+    app.appendChild(renderTimeline());
+    updatePostList();
+  } else {
+    app.appendChild(renderPolicy());
+  }
+}
+
+function renderTimeline(){
+  const wrap = document.createElement('div');
+
+  const chips = el(`<div class="chips"></div>`);
+  ["全体", ...DEPTS].forEach(d=>{
+    const c = el(`<div class="chip ${d===activeDept?'active':''}">${d}</div>`);
+    c.onclick = ()=>{ activeDept = d; if(d!=="全体") draftDept = d; render(); };
+    chips.appendChild(c);
+  });
+  wrap.appendChild(chips);
+
+  const search = el(`<input class="search" placeholder="キーワードで検索（部門・内容など）" value="${searchText}">`);
+  search.oninput = (e)=>{ searchText = e.target.value; updatePostList(); };
+  wrap.appendChild(search);
+
+  wrap.appendChild(renderComposer());
+
+  const listContainer = el(`<div id="postList"></div>`);
+  wrap.appendChild(listContainer);
+  // populated right after insertion via updatePostList(), called from render()
+
+  return wrap;
+}
+
+function updatePostList(){
+  const container = document.getElementById('postList');
+  if(!container) return;
+  container.innerHTML = '';
+  const filtered = posts.filter(p=>{
+    const deptOk = activeDept==="全体" || p.dept===activeDept;
+    const s = searchText.trim();
+    const searchOk = !s || (p.text+p.dept+p.author).includes(s);
+    return deptOk && searchOk;
+  }).slice().reverse();
+
+  if(filtered.length===0){
+    container.appendChild(el(`<div class="empty">まだ投稿がありません。気づいたことを気軽に書いてみてください。</div>`));
+  } else {
+    filtered.forEach(p=> container.appendChild(renderPost(p)));
+  }
+}
+
+function renderComposer(){
+  const box = el(`<div class="composer"></div>`);
+  box.appendChild(el(`<div class="prompt">今日、${draftDept}で気になったことはありましたか？</div>`));
+
+  const qrow = el(`<div class="quickrow"></div>`);
+  const yes = el(`<div class="qbtn ${draftQuick==='yes'?'selected':''}">はい、書きます</div>`);
+  const no = el(`<div class="qbtn ${draftQuick==='no'?'selected':''}">特になし</div>`);
+  yes.onclick = ()=>{ draftQuick='yes'; render(); };
+  no.onclick = ()=>{ draftQuick='no'; render(); };
+  qrow.appendChild(yes); qrow.appendChild(no);
+  box.appendChild(qrow);
+
+  if(draftQuick==='yes'){
+    const trow = el(`<div class="tmplrow"></div>`);
+    TEMPLATES.forEach(t=>{
+      const tb = el(`<div class="tmpl">＋${t}</div>`);
+      tb.onclick = ()=>{ draftText = (draftText? draftText+' ' : '') + '['+t+'] '; render(); document.getElementById('draftTa').focus(); };
+      trow.appendChild(tb);
+    });
+    box.appendChild(trow);
+
+    const ta = el(`<textarea id="draftTa" placeholder="気づいたことを気軽にどうぞ">${draftText}</textarea>`);
+    ta.oninput = (e)=>{ draftText = e.target.value; };
+    box.appendChild(ta);
+  }
+
+  const foot = el(`<div class="composer-foot"></div>`);
+  const sel = el(`<select class="deptlabel" style="border:none;background:none;font-size:12px;color:var(--ink-faint);"></select>`);
+  DEPTS.forEach(d=>{
+    const o = document.createElement('option');
+    o.value = d; o.textContent = "投稿先: "+d;
+    if(d===draftDept) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.onchange = (e)=>{ draftDept = e.target.value; };
+  foot.appendChild(sel);
+
+  const canSubmit = draftQuick==='no' || (draftQuick==='yes' && draftText.trim().length>0);
+  const btn = el(`<button class="primary" ${canSubmit?'':'disabled'}>投稿</button>`);
+  btn.onclick = async ()=>{
+    if(!canSubmit) return;
+    const name = await ensureName();
+    render();
+    const text = draftQuick==='no' ? '特になし' : draftText.trim();
+    posts.push({
+      id: Date.now()+Math.random(), dept: draftDept, text, isNone: draftQuick==='no',
+      author: name||'匿名', ts: Date.now(), comments: [], reactions: [],
+      decided:false, decision:'', decisionAuthor:'', decisionTs:0,
+      result:'', resultTs:0, isPolicy:false, policyTheme:''
+    });
+    draftQuick=null; draftText='';
+    await savePosts();
+    render();
+  };
+  foot.appendChild(btn);
+  box.appendChild(foot);
+
+  return box;
+}
+
+function renderPost(p){
+  const card = el(`<div class="post"></div>`);
+  const head = el(`<div class="post-head">
+    <span class="badge">${p.dept}</span>
+    <span class="meta">${p.author}・${fmtTime(p.ts)}</span>
+  </div>`);
+  card.appendChild(head);
+  card.appendChild(el(`<div class="post-text ${p.isNone?'none-text':''}">${escapeHtml(p.text)}</div>`));
+
+  // reactions
+  const rrow = el(`<div class="reactrow"></div>`);
+  const iReacted = myName && p.reactions.includes(myName);
+  const rbtn = el(`<div class="react ${iReacted?'on':''}">確認しました${p.reactions.length? '（'+p.reactions.length+'）':''}</div>`);
+  rbtn.onclick = async ()=>{
+    const name = await ensureName(); if(!name) return;
+    const idx = p.reactions.indexOf(name);
+    if(idx>=0) p.reactions.splice(idx,1); else p.reactions.push(name);
+    await savePosts(); render();
+  };
+  rrow.appendChild(rbtn);
+  card.appendChild(rrow);
+
+  // comments
+  if(p.comments.length>0){
+    const cwrap = el(`<div class="comments"></div>`);
+    p.comments.forEach(c=>{
+      cwrap.appendChild(el(`<div class="comment"><b>${escapeHtml(c.author)}：</b>${escapeHtml(c.text)}</div>`));
+    });
+    card.appendChild(cwrap);
+  }
+  const crow = el(`<div class="inline-row"></div>`);
+  const cinput = el(`<input placeholder="コメントする" />`);
+  const cbtn = el(`<button>返信</button>`);
+  cbtn.onclick = async ()=>{
+    if(!cinput.value.trim()) return;
+    const name = await ensureName(); if(!name) return;
+    p.comments.push({author:name, text:cinput.value.trim(), ts:Date.now()});
+    await savePosts(); render();
+  };
+  crow.appendChild(cinput); crow.appendChild(cbtn);
+  card.appendChild(crow);
+
+  // decision area
+  if(p.decided){
+    const dbox = el(`<div class="decision-box"></div>`);
+    dbox.appendChild(el(`<div class="lbl">決定（${escapeHtml(p.decisionAuthor)}・${fmtTime(p.decisionTs)}）</div>`));
+    dbox.appendChild(el(`<div class="txt">${escapeHtml(p.decision)}</div>`));
+    if(p.result){
+      dbox.appendChild(el(`<div class="result">結果（${fmtTime(p.resultTs)}）：${escapeHtml(p.result)}</div>`));
+    } else {
+      const rrow2 = el(`<div class="inline-row"></div>`);
+      const rinput = el(`<input placeholder="その後の結果を追記" />`);
+      const rbtn2 = el(`<button>追記</button>`);
+      rbtn2.onclick = async ()=>{
+        if(!rinput.value.trim()) return;
+        p.result = rinput.value.trim(); p.resultTs = Date.now();
+        await savePosts(); render();
+      };
+      rrow2.appendChild(rinput); rrow2.appendChild(rbtn2);
+      dbox.appendChild(rrow2);
+    }
+    card.appendChild(dbox);
+  } else {
+    const toggleBtn = el(`<button class="toggle-decide">${decideFormOpen[p.id]?'閉じる':'＋ 方向性を決定する'}</button>`);
+    toggleBtn.onclick = ()=>{ decideFormOpen[p.id] = !decideFormOpen[p.id]; render(); };
+    card.appendChild(toggleBtn);
+    if(decideFormOpen[p.id]){
+      const form = el(`<div class="decide-form"></div>`);
+      form.appendChild(el(`<label>決定した対応・方向性</label>`));
+      const dtext = el(`<textarea placeholder="例：エクセネルの間隔は短くても中3日とする"></textarea>`);
+      form.appendChild(dtext);
+      const chk = el(`<label class="check"><input type="checkbox" id="polchk-${p.id}"> 農場全体の方針として方針集にも残す</label>`);
+      form.appendChild(chk);
+      const themeInput = el(`<input placeholder="方針のテーマ名（例：エクセネル投与間隔）" style="display:none;">`);
+      form.appendChild(themeInput);
+      chk.querySelector('input').onchange = (e)=>{ themeInput.style.display = e.target.checked ? 'block':'none'; };
+      const confirmBtn = el(`<button class="primary" style="margin-top:2px;">決定を記録</button>`);
+      confirmBtn.onclick = async ()=>{
+        if(!dtext.value.trim()) return;
+        const name = await ensureName(); if(!name) return;
+        p.decided = true; p.decision = dtext.value.trim();
+        p.decisionAuthor = name; p.decisionTs = Date.now();
+        if(chk.querySelector('input').checked){
+          p.isPolicy = true;
+          p.policyTheme = themeInput.value.trim() || p.dept;
+        }
+        decideFormOpen[p.id] = false;
+        await savePosts(); render();
+      };
+      form.appendChild(confirmBtn);
+      card.appendChild(form);
+    }
+  }
+
+  return card;
+}
+
+function renderPolicy(){
+  const wrap = document.createElement('div');
+  wrap.appendChild(el(`<div style="font-size:13px;color:var(--ink-soft);margin:14px 0 6px;">農場全体の方針として決定された内容を、テーマごとに最新の方針と経緯でまとめています。</div>`));
+
+  const policyPosts = posts.filter(p=>p.isPolicy && p.decided);
+  const themes = {};
+  policyPosts.forEach(p=>{
+    const key = p.policyTheme || p.dept;
+    if(!themes[key]) themes[key] = [];
+    themes[key].push(p);
+  });
+
+  const keys = Object.keys(themes);
+  if(keys.length===0){
+    wrap.appendChild(el(`<div class="empty">まだ方針として登録された決定はありません。タイムラインの投稿から「方向性を決定する」→「方針集にも残す」で登録できます。</div>`));
+    return wrap;
+  }
+
+  keys.forEach(theme=>{
+    const items = themes[theme].slice().sort((a,b)=>b.decisionTs - a.decisionTs);
+    const latest = items[0];
+    const history = items.slice(1);
+
+    const card = el(`<div class="policy-theme"></div>`);
+    card.appendChild(el(`<h3>${escapeHtml(theme)}</h3>`));
+    card.appendChild(el(`<div class="policy-current">${escapeHtml(latest.decision)}</div>`));
+    card.appendChild(el(`<div class="meta">${escapeHtml(latest.decisionAuthor)}・${fmtTime(latest.decisionTs)}（${latest.dept}）</div>`));
+    if(latest.result){
+      card.appendChild(el(`<div class="meta" style="margin-top:4px;">結果：${escapeHtml(latest.result)}</div>`));
+    }
+
+    if(history.length>0){
+      const toggle = el(`<button class="toggle-hist">${expandedHistory[theme]?'経緯を閉じる':'これまでの経緯を見る（'+history.length+'件）'}</button>`);
+      toggle.onclick = ()=>{ expandedHistory[theme] = !expandedHistory[theme]; render(); };
+      card.appendChild(toggle);
+      if(expandedHistory[theme]){
+        const hwrap = el(`<div class="policy-history"></div>`);
+        history.forEach(h=>{
+          hwrap.appendChild(el(`<div class="item"><div class="d">${fmtTime(h.decisionTs)}・${escapeHtml(h.decisionAuthor)}</div>${escapeHtml(h.decision)}</div>`));
+        });
+        card.appendChild(hwrap);
+      }
+    }
+    wrap.appendChild(card);
+  });
+
+  return wrap;
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s==null? '' : s;
+  return d.innerHTML;
+}
+
+document.querySelectorAll('nav.tabs button').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    activeTab = b.dataset.tab;
+    render();
+  };
+});
+document.getElementById('meBtn').onclick = async ()=>{
+  const n = prompt("お名前を入力してください", myName||"");
+  if(n && n.trim()){
+    myName = n.trim();
+    localStorage.setItem('farm-note-my-name', myName);
+    render();
+  }
+};
+
+loadAll();
+</script>
+</body>
+</html>
