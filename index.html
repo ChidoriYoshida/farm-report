@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0090)file:///C:/Users/hikoc/Downloads/%E7%8F%BE%E5%A0%B4%E3%83%8E%E3%83%BC%E3%83%88%20(17).html -->
+<!-- saved from url=(0090)file:///C:/Users/hikoc/Downloads/%E7%8F%BE%E5%A0%B4%E3%83%8E%E3%83%BC%E3%83%88%20(19).html -->
 <html lang="ja"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
@@ -99,6 +99,16 @@
   .post{
     background:var(--paper); border:1px solid var(--line); border-radius:14px;
     padding:14px 16px; margin-bottom:12px;
+    transition:box-shadow .3s, border-color .3s;
+  }
+  .post.new-post{
+    border-color:var(--accent);
+    box-shadow:0 0 0 2px var(--accent-bg);
+  }
+  .new-badge{
+    font-size:10px; font-weight:800; color:#fff; background:var(--accent);
+    padding:2px 7px; border-radius:20px; letter-spacing:.03em; margin-right:6px;
+    vertical-align:middle;
   }
   .post-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
   .badge{font-size:11px; padding:3px 9px; border-radius:20px; background:var(--accent-bg); color:var(--accent-ink); font-weight:700;}
@@ -193,6 +203,7 @@ let decideFormOpen = {};
 let expandedHistory = {};
 let editingPost = {};
 let submittingPost = false;
+let seenPostIds = new Set();
 let saving = false;
 
 async function tryAuth(pw){
@@ -211,6 +222,7 @@ async function init(){
     if(ok === true){
       authed = true;
       myName = localStorage.getItem('farm-note-my-name') || "";
+      posts.forEach(p => seenPostIds.add(String(p.id))); // 初回表示分はNEW扱いにしない
       render();
       return;
     }
@@ -247,6 +259,7 @@ function renderAuthScreen(errorMsg){
       localStorage.setItem('farm-note-passphrase', passphrase);
       authed = true;
       myName = localStorage.getItem('farm-note-my-name') || "";
+      posts.forEach(p => seenPostIds.add(String(p.id))); // 初回表示分はNEW扱いにしない
       render();
     } else if(ok === false){
       renderAuthScreen('合言葉が違います。もう一度お試しください。');
@@ -261,30 +274,88 @@ function renderAuthScreen(errorMsg){
   setTimeout(()=> input.focus(), 60);
 }
 
-async function savePosts(){
-  saving = true;
-  try{
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // CORSのプリフライトを避けるためtext/plainで送る
-      body: JSON.stringify({ pw: passphrase, posts: posts })
-    });
-    const json = await res.json();
-    if(json && json.status === 'unauthorized'){
-      alert('合言葉が違うため保存できませんでした。ページを再読み込みして、合言葉を入力し直してください。');
-    }
-  }catch(e){ console.error('保存エラー', e); alert('保存に失敗しました。通信環境をご確認ください。'); }
-  saving = false;
+async function callApi(action, payload){
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // CORSのプリフライトを避けるためtext/plainで送る
+    body: JSON.stringify(Object.assign({ pw: passphrase, action: action }, payload))
+  });
+  const json = await res.json();
+  if(json && json.status === 'unauthorized'){
+    alert('合言葉が違うため操作できませんでした。ページを再読み込みして、合言葉を入力し直してください。');
+    throw new Error('unauthorized');
+  }
+  if(json && json.status === 'error'){
+    alert(json.message || '操作に失敗しました。もう一度お試しください。');
+    throw new Error(json.message || 'error');
+  }
+  return json;
+}
+
+function showNameModal(){
+  return new Promise((resolve)=>{
+    const overlay = el(`<div style="position:fixed; inset:0; background:rgba(44,43,37,0.45); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px;"></div>`);
+    const box = el(`<div style="background:var(--paper); border-radius:14px; padding:22px 20px; max-width:320px; width:100%; text-align:center;"></div>`);
+    box.appendChild(el(`<div style="font-size:15px; font-weight:700; margin-bottom:8px;">お名前を入力してください</div>`));
+    box.appendChild(el(`<div style="font-size:12px; color:var(--ink-soft); margin-bottom:14px; line-height:1.6;">投稿やコメント、リアクションに表示されます</div>`));
+    const input = el(`<input type="text" placeholder="お名前" style="width:100%; padding:11px; font-size:16px; border:1px solid var(--line); border-radius:8px; box-sizing:border-box; margin-bottom:12px; text-align:center;">`);
+    box.appendChild(input);
+    const btnRow = el(`<div style="display:flex; gap:8px;"></div>`);
+    const cancelBtn = el(`<button style="flex:1; padding:10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink-soft); font-size:13px;">やめる</button>`);
+    const okBtn = el(`<button class="primary" style="flex:1; padding:10px;">決定</button>`);
+    btnRow.appendChild(cancelBtn); btnRow.appendChild(okBtn);
+    box.appendChild(btnRow);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    setTimeout(()=> input.focus(), 60);
+
+    const cleanup = (val)=>{ document.body.removeChild(overlay); resolve(val); };
+    cancelBtn.onclick = ()=> cleanup(null);
+    okBtn.onclick = ()=>{ cleanup(input.value.trim() || null); };
+    input.onkeydown = (e)=>{ if(e.key === 'Enter') cleanup(input.value.trim() || null); };
+  });
+}
+
+function showConfirmModal(message){
+  return new Promise((resolve)=>{
+    const overlay = el(`<div style="position:fixed; inset:0; background:rgba(44,43,37,0.45); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px;"></div>`);
+    const box = el(`<div style="background:var(--paper); border-radius:14px; padding:22px 20px; max-width:320px; width:100%; text-align:center;"></div>`);
+    box.appendChild(el(`<div style="font-size:14px; color:var(--ink); margin-bottom:18px; line-height:1.6;">${message}</div>`));
+    const btnRow = el(`<div style="display:flex; gap:8px;"></div>`);
+    const cancelBtn = el(`<button style="flex:1; padding:10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink-soft); font-size:13px;">やめる</button>`);
+    const okBtn = el(`<button style="flex:1; padding:10px; border-radius:8px; border:none; background:var(--warn); color:#fff; font-size:13px; font-weight:700;">削除する</button>`);
+    btnRow.appendChild(cancelBtn); btnRow.appendChild(okBtn);
+    box.appendChild(btnRow);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    const cleanup = (val)=>{ document.body.removeChild(overlay); resolve(val); };
+    cancelBtn.onclick = ()=> cleanup(false);
+    okBtn.onclick = ()=> cleanup(true);
+  });
 }
 
 async function ensureName(){
   if(myName) return myName;
-  const n = prompt("お名前を入力してください（投稿に表示されます）");
-  if(n && n.trim()){
-    myName = n.trim();
+  const n = await showNameModal();
+  if(n){
+    myName = n;
     localStorage.setItem('farm-note-my-name', myName);
   }
   return myName;
+}
+
+function updateTitleBadge(){
+  const unseen = posts.filter(p => !seenPostIds.has(String(p.id)) && p.author !== myName).length;
+  document.title = unseen > 0 ? '（' + unseen + '）ひこちゃん牧場 現場ノート' : 'ひこちゃん牧場 現場ノート';
+}
+
+function markAllSeenSoon(){
+  // 少し遅らせてから既読にする（NEW表示を一瞬見せてから消すため）
+  setTimeout(()=>{
+    posts.forEach(p => seenPostIds.add(String(p.id)));
+    updateTitleBadge();
+  }, 1500);
 }
 
 function fmtTime(ts){
@@ -351,6 +422,8 @@ function updatePostList(){
   } else {
     filtered.forEach(p=> container.appendChild(renderPost(p)));
   }
+
+  if(!document.hidden) markAllSeenSoon();
 }
 
 function renderComposer(){
@@ -398,14 +471,17 @@ function renderComposer(){
     render(); // ボタンをすぐ無効化し、連打による二重投稿を防ぐ
     const name = await ensureName();
     const text = draftQuick==='no' ? '特になし' : draftText.trim();
-    posts.push({
+    const newPost = {
       id: Date.now()+Math.random(), dept: draftDept, text, isNone: draftQuick==='no',
       author: name||'匿名', ts: Date.now(), comments: [], reactions: [],
       decided:false, decision:'', decisionAuthor:'', decisionTs:0,
       result:'', resultTs:0, isPolicy:false, policyTheme:''
-    });
-    draftQuick=null; draftText='';
-    await savePosts();
+    };
+    try{
+      await callApi('addPost', { post: newPost });
+      posts.push(newPost);
+      draftQuick=null; draftText='';
+    }catch(e){ /* エラー内容は callApi 内でアラート済み。下書きは残す */ }
     submittingPost = false;
     render();
   };
@@ -416,10 +492,11 @@ function renderComposer(){
 }
 
 function renderPost(p){
-  const card = el(`<div class="post"></div>`);
+  const isNew = !seenPostIds.has(String(p.id)) && p.author !== myName;
+  const card = el(`<div class="post ${isNew?'new-post':''}"></div>`);
   const head = el(`<div class="post-head">
     <span class="badge">${p.dept}</span>
-    <span class="meta">${p.author}・${fmtTime(p.ts)}</span>
+    <span class="meta">${isNew?'<span class="new-badge">NEW</span>':''}${p.author}・${fmtTime(p.ts)}</span>
   </div>`);
   card.appendChild(head);
 
@@ -434,9 +511,13 @@ function renderPost(p){
     const cancelBtn = el(`<button>やめる</button>`);
     saveBtn.onclick = async ()=>{
       if(!editTa.value.trim()) return;
-      p.text = editTa.value.trim();
-      editingPost[p.id] = false;
-      await savePosts(); render();
+      const newText = editTa.value.trim();
+      try{
+        await callApi('patchPost', { id: p.id, patch: { text: newText } });
+        p.text = newText;
+        editingPost[p.id] = false;
+      }catch(e){}
+      render();
     };
     cancelBtn.onclick = ()=>{ editingPost[p.id] = false; render(); };
     editRow.appendChild(saveBtn); editRow.appendChild(cancelBtn);
@@ -452,9 +533,13 @@ function renderPost(p){
     const delLink = el(`<button class="toggle-decide" style="padding:0; color:var(--warn-ink);">削除</button>`);
     editLink.onclick = ()=>{ editingPost[p.id] = true; render(); };
     delLink.onclick = async ()=>{
-      if(!confirm('この投稿を削除します。よろしいですか？')) return;
-      posts = posts.filter(x=>x.id!==p.id);
-      await savePosts(); render();
+      const ok = await showConfirmModal('この投稿を削除します。よろしいですか？');
+      if(!ok) return;
+      try{
+        await callApi('deletePost', { id: p.id });
+        posts = posts.filter(x=>x.id!==p.id);
+      }catch(e){}
+      render();
     };
     editRow2.appendChild(editLink); editRow2.appendChild(delLink);
     card.appendChild(editRow2);
@@ -466,9 +551,11 @@ function renderPost(p){
   const rbtn = el(`<div class="react ${iReacted?'on':''}">確認しました${p.reactions.length? '（'+p.reactions.length+'）':''}</div>`);
   rbtn.onclick = async ()=>{
     const name = await ensureName(); if(!name) return;
-    const idx = p.reactions.indexOf(name);
-    if(idx>=0) p.reactions.splice(idx,1); else p.reactions.push(name);
-    await savePosts(); render();
+    try{
+      const result = await callApi('toggleReaction', { id: p.id, name: name });
+      p.reactions = result.reactions;
+    }catch(e){}
+    render();
   };
   rrow.appendChild(rbtn);
   card.appendChild(rrow);
@@ -482,9 +569,13 @@ function renderPost(p){
       if(myName && c.author === myName){
         const delC = el(`<button style="border:none; background:none; color:var(--ink-faint); font-size:12px; cursor:pointer; flex:0 0 auto;">削除</button>`);
         delC.onclick = async ()=>{
-          if(!confirm('このコメントを削除します。よろしいですか？')) return;
-          p.comments.splice(ci,1);
-          await savePosts(); render();
+          const ok = await showConfirmModal('このコメントを削除します。よろしいですか？');
+          if(!ok) return;
+          try{
+            const result = await callApi('deleteComment', { id: p.id, commentTs: c.ts });
+            p.comments = result.comments;
+          }catch(e){}
+          render();
         };
         crow2.appendChild(delC);
       }
@@ -498,8 +589,12 @@ function renderPost(p){
   cbtn.onclick = async ()=>{
     if(!cinput.value.trim()) return;
     const name = await ensureName(); if(!name) return;
-    p.comments.push({author:name, text:cinput.value.trim(), ts:Date.now()});
-    await savePosts(); render();
+    const comment = {author:name, text:cinput.value.trim(), ts:Date.now()};
+    try{
+      const result = await callApi('addComment', { id: p.id, comment: comment });
+      p.comments = result.comments;
+    }catch(e){}
+    render();
   };
   crow.appendChild(cinput); crow.appendChild(cbtn);
   card.appendChild(crow);
@@ -517,8 +612,12 @@ function renderPost(p){
       const rbtn2 = el(`<button>追記</button>`);
       rbtn2.onclick = async ()=>{
         if(!rinput.value.trim()) return;
-        p.result = rinput.value.trim(); p.resultTs = Date.now();
-        await savePosts(); render();
+        const resultText = rinput.value.trim(); const resultTs = Date.now();
+        try{
+          await callApi('patchPost', { id: p.id, patch: { result: resultText, resultTs: resultTs } });
+          p.result = resultText; p.resultTs = resultTs;
+        }catch(e){}
+        render();
       };
       rrow2.appendChild(rinput); rrow2.appendChild(rbtn2);
       dbox.appendChild(rrow2);
@@ -542,14 +641,21 @@ function renderPost(p){
       confirmBtn.onclick = async ()=>{
         if(!dtext.value.trim()) return;
         const name = await ensureName(); if(!name) return;
-        p.decided = true; p.decision = dtext.value.trim();
-        p.decisionAuthor = name; p.decisionTs = Date.now();
+        const patch = {
+          decided: true, decision: dtext.value.trim(),
+          decisionAuthor: name, decisionTs: Date.now(),
+          isPolicy: false, policyTheme: ''
+        };
         if(chk.querySelector('input').checked){
-          p.isPolicy = true;
-          p.policyTheme = themeInput.value.trim() || p.dept;
+          patch.isPolicy = true;
+          patch.policyTheme = themeInput.value.trim() || p.dept;
         }
-        decideFormOpen[p.id] = false;
-        await savePosts(); render();
+        try{
+          await callApi('patchPost', { id: p.id, patch: patch });
+          Object.assign(p, patch);
+          decideFormOpen[p.id] = false;
+        }catch(e){}
+        render();
       };
       form.appendChild(confirmBtn);
       card.appendChild(form);
@@ -625,15 +731,38 @@ document.querySelectorAll('nav.tabs button').forEach(b=>{
 });
 document.getElementById('meBtn').onclick = async ()=>{
   if(!authed) return;
-  const n = prompt("お名前を入力してください", myName||"");
-  if(n && n.trim()){
-    myName = n.trim();
+  const n = await showNameModal();
+  if(n){
+    myName = n;
     localStorage.setItem('farm-note-my-name', myName);
     render();
   }
 };
 
 init();
+
+// 他の担当者による更新を定期的に取り込む（入力中の画面は邪魔しないようにする）
+setInterval(async ()=>{
+  if(!authed) return;
+  try{
+    const res = await fetch(API_URL + '?pw=' + encodeURIComponent(passphrase));
+    const json = await res.json();
+    if(!Array.isArray(json)) return;
+    posts = json;
+    updateTitleBadge();
+    const active = document.activeElement;
+    const appEl = document.getElementById('app');
+    const isTyping = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && appEl.contains(active);
+    if(isTyping) return; // 誰かが入力中なら、その画面は更新しない
+    if(activeTab === 'timeline') updatePostList();
+    else render();
+  }catch(e){ /* 通信エラー時は次回のポーリングで再試行 */ }
+}, 20000);
+
+// タブ・アプリに戻ってきたら、少し経ってから既読にする
+document.addEventListener('visibilitychange', ()=>{
+  if(!document.hidden && authed) markAllSeenSoon();
+});
 </script>
 
 
